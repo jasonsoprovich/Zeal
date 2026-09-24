@@ -102,6 +102,9 @@
     <ClInclude Include="outputfile.h">
       <Filter>Header Files\other</Filter>
     </ClInclude>
+    <ClInclude Include="popflags_export.h">
+      <Filter>Header Files\other</Filter>
+    </ClInclude>
     <ClInclude Include="buff_timers.h">
       <Filter>Header Files\other</Filter>
     </ClInclude>
@@ -366,6 +369,9 @@
       <Filter>Source Files\hooks</Filter>
     </ClCompile>
     <ClCompile Include="outputfile.cpp">
+      <Filter>Source Files\other</Filter>
+    </ClCompile>
+    <ClCompile Include="popflags_export.cpp">
       <Filter>Source Files\other</Filter>
     </ClCompile>
     <ClCompile Include="buff_timers.cpp">

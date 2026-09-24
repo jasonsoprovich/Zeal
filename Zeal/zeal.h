@@ -69,6 +69,7 @@ class ZealService {
   std::unique_ptr<class AssistTarget> assist_target = nullptr;  // Must construct after raid_bars (LMouseUp chain).
   std::unique_ptr<class Assist> assist = nullptr;  // Must construct after assist_target (assist response swallowing).
   std::unique_ptr<class Triggers> triggers = nullptr;
+  std::unique_ptr<class PopFlagsExport> popflags_export = nullptr;  // Uses chat_hook, outputfile.
   std::unique_ptr<class TargetRing> target_ring = nullptr;
   std::unique_ptr<class FloatingDamage> floating_damage = nullptr;
 

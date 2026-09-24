@@ -291,13 +291,19 @@ ___
 
 - `/outputfile`
   - **Aliases:** `/output`, `/out`
-  - **Arguments:** `inventory | spellbook | raidlist` `[optional_filename]`, `format [0 | 1]`
+  - **Arguments:** `inventory | spellbook | raidlist | popflags` `[optional_filename]`, `format [0 | 1]`,
+    `popflags auto [on | off]`
   - **Example:** `/outputfile inventory my_inventory`
   - **Description:**
     - `inventory` outputs information about your equipment, inventory bag slots, held item, and bank slots to a file.
     - `spellbook` outputs a list of all spell ids current scribed in your spellbook.
     - `raidlist` outputs a raid 'tick' with a list of players in the raid.
     - `format` sets the format of the export files (0 = default, 1 = new style with host tag)
+    - `popflags` writes any `#popflags` output you've run this session to `<CharName>-PopFlags.txt`,
+      merged onto whatever sections are already in that file from earlier sessions. Zeal doesn't
+      understand what the lines mean - it just records the text the server prints, so this works
+      whether or not your server has this command. See the `### Plane of Power flags export`
+      section below for the file format and the `auto` mode.
 
 - `/pandelay`
   - **Arguments:** `ms delay`, `none`
@@ -560,6 +566,48 @@ ___
      - enhanced tab completion for /tell, /t, and /consent
 
 ___
+### Plane of Power flags export
+Some servers (Project Quarm as of PoP launch) add a `#popflags [overview|1-5]` command that prints a
+report of a character's Plane of Power flag progression, built from server-side data Zeal has no
+other way to read. `/outputfile popflags` lets a companion tool pick that report up as a file, the
+same way it already can with `/outputfile inventory` or `quarmy`.
+
+Zeal only watches chat for the six `=== ... ===` section headers `#popflags` prints (overview, tier 1
+through tier 4, and Plane of Time); everything between a header and the end of that section is
+stored and exported exactly as printed, without Zeal trying to understand what any of it means. That
+means a wording change to the server's report text doesn't need a new Zeal release - only a change to
+which headers exist would.
+
+- Run `#popflags overview`, `#popflags 1`, ... `#popflags 5` (or `#popflags all`, staff only) to
+  populate a section. Zeal captures it silently in the background - no separate step needed.
+- `/outputfile popflags [optional_filename]` writes every section captured so far this session to
+  `<CharName>-PopFlags[hosttag].txt` (or `optional_filename.txt`). Sections captured in an earlier
+  session and not re-run this session are preserved, so running one tier per session still builds up
+  a complete file over time. A no-op if nothing has been captured yet.
+- With the existing `ExportOnCamp` option on, this file is also written on camp, alongside
+  Inventory/Spellbook/Quarmy - but only if at least one section has been captured; camping without
+  running `#popflags` first leaves a previously written file untouched rather than overwriting it
+  with nothing.
+- `/outputfile popflags auto [on | off]` (default **off**) makes camping itself send
+  `#popflags 1` through `#popflags 5` (spaced out, then written to file once the replies arrive), so
+  the export stays current without you having to run the command yourself. Leave this off if you'd
+  rather not have ~80 extra lines print to chat, or five extra server commands sent, every time you
+  camp. It also does nothing useful on a server without `#popflags` - it'll just print "Unknown
+  command" a few times.
+- Switching characters clears anything captured for the previous character, so one character's flags
+  can never end up in another character's file.
+
+File format (tab-separated, matching the other `/outputfile` exports):
+```
+Format	PopFlags	1
+Section	<unix_epoch_seconds>	=== Tier 1 Progression ===
+Line	--- Plane of Justice ---
+Line	Seventh Hammer access: Unlocked
+...
+```
+Each `Section` line starts a section (the epoch second it was captured, then the exact header text);
+every `Line` after it until the next `Section` is one line of that section's report, verbatim.
+
 ### Key Binds
 
 Per character keybinds are supported through an option in the Zeal General Tab. When enabled the

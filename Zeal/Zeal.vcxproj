@@ -137,6 +137,7 @@
     <ClInclude Include="instruction_length.h" />
     <ClInclude Include="netstat.h" />
     <ClInclude Include="outputfile.h" />
+    <ClInclude Include="popflags_export.h" />
     <ClInclude Include="raid.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="spell_categories.h" />
@@ -219,6 +220,7 @@
     <ClCompile Include="camera_mods.cpp" />
     <ClCompile Include="netstat.cpp" />
     <ClCompile Include="outputfile.cpp" />
+    <ClCompile Include="popflags_export.cpp" />
     <ClCompile Include="raid.cpp" />
     <ClCompile Include="spellsets.cpp" />
     <ClCompile Include="string_util.cpp" />
