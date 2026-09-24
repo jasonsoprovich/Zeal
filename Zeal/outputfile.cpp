@@ -7,6 +7,7 @@
 #include "miniz.h"
 #include "game_structures.h"
 #include "hook_wrapper.h"
+#include "popflags_export.h"
 #include "string_util.h"
 #include "zeal.h"
 
@@ -453,6 +454,7 @@ static void __fastcall GameCamp(void *this_game, int unused_edx) {
     ZealService::get_instance()->outputfile->export_spellbook();
     ZealService::get_instance()->outputfile->export_quarmy();
   }
+  if (ZealService::get_instance()->popflags_export) ZealService::get_instance()->popflags_export->OnCamp();
   ZealService::get_instance()->hooks->hook_map["GameCamp"]->original(GameCamp)(this_game, unused_edx);
 }
 
@@ -487,8 +489,21 @@ OutputFile::OutputFile(ZealService *zeal) {
             return true;
           }
         }
-        Zeal::Game::print_chat("usage: /outputfile [inventory | spellbook | quarmy | raidlist] [optional filename]");
+
+        // Handled by the separate PopFlagsExport class. It's constructed after this class (it needs
+        // chat_hook, which this class doesn't), so it's looked up here via ZealService::get_instance()
+        // rather than captured, since this lambda only runs later once every class is fully built.
+        // Kept as a sub-command here instead of its own /outputfile registration so it can't silently
+        // replace this command's handler (ChatCommands::Add overwrites same-named commands).
+        if (args.size() >= 2 && Zeal::String::compare_insensitive(args[1], "popflags") &&
+            ZealService::get_instance()->popflags_export &&
+            ZealService::get_instance()->popflags_export->HandleCommand(args))
+          return true;
+
+        Zeal::Game::print_chat(
+            "usage: /outputfile [inventory | spellbook | quarmy | raidlist | popflags] [optional filename]");
         Zeal::Game::print_chat("usage: /outputfile format [0 | 1]");
+        Zeal::Game::print_chat("usage: /outputfile popflags auto [on | off]");
         return true;
       });
   zeal->hooks->Add("GameCamp", 0x00530c7b, GameCamp, hook_type_detour);

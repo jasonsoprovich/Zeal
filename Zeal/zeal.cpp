@@ -49,6 +49,7 @@
 #include "patches.h"
 #include "physics.h"
 #include "player_movement.h"
+#include "popflags_export.h"
 #include "raid.h"
 #include "raid_bars.h"
 #include "spell_effects.h"
@@ -168,6 +169,7 @@ ZealService::ZealService() {
   assist = MakeCheckedUnique(
       Assist);  // Register after assist_target so that can swallow auto-assist responses if necessary.
   triggers = MakeCheckedUnique(Triggers);  // Uses chat_hook.
+  popflags_export = MakeCheckedUnique(PopFlagsExport);  // Uses chat_hook, outputfile.
   ui_hide_fake_slots = MakeCheckedUnique(UI_HideFakeSlots);
   nameplate = MakeCheckedUnique(NamePlate);   // Uses target ring blink rate, chat, chatfilter.
   tells = MakeCheckedUnique(TellWindows);     // Uses new UI ChatManager.
