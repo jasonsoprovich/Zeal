@@ -335,6 +335,13 @@ void NamedPipe::main_loop() {
         player_data["target_texture"] = target->Texture;
         player_data["target_gender"] = target->Gender;  // GENDER_x
         player_data["target_size"] = target->Height;    // Model height / scale.
+        // Worn equipment as rendered: 7 material slots (head, chest, arms, wrist, hands,
+        // legs, feet) followed by the primary and secondary item types.
+        nlohmann::json equipment = nlohmann::json::array();
+        for (int i = 0; i < 7; ++i) equipment.push_back(target->EquipmentMaterialType[i]);
+        equipment.push_back(target->EquipmentPrimaryItemType);
+        equipment.push_back(target->EquipmentSecondaryItemType);
+        player_data["target_equipment"] = equipment;
         // The target's position is only exported while it is close to the player
         // (server policy), so this can't be used to locate spawns across a zone.
         auto self = Zeal::Game::get_self();  // This is known to be non-null from above.
