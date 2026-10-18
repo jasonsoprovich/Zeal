@@ -305,7 +305,8 @@ ___
     - `popflags` writes any `#popflags` output you've run this session to `<CharName>-PopFlags.txt`,
       merged onto whatever sections are already in that file from earlier sessions. Zeal doesn't
       understand what the lines mean - it just records the text the server prints, so this works
-      whether or not your server has this command. See the `### Plane of Power flags export`
+      whether or not your server has this command. With `ExportOnCamp` on, Project Quarm characters
+      get this file refreshed automatically on camp. See the `### Plane of Power flags export`
       section below for the file format and the `auto` mode.
 
 - `/pandelay`
@@ -606,16 +607,17 @@ which headers exist would.
   `<CharName>-PopFlags[hosttag].txt` (or `optional_filename.txt`). Sections captured in an earlier
   session and not re-run this session are preserved, so running one tier per session still builds up
   a complete file over time. A no-op if nothing has been captured yet.
-- With the existing `ExportOnCamp` option on, this file is also written on camp, alongside
-  Inventory/Spellbook/Quarmy - but only if at least one section has been captured; camping without
-  running `#popflags` first leaves a previously written file untouched rather than overwriting it
-  with nothing.
-- `/outputfile popflags auto [on | off]` (default **off**) makes camping itself send
-  `#popflags` (the overview) and `#popflags 1` through `#popflags 5` (spaced out, then written to file once the replies arrive), so
-  the export stays current without you having to run the command yourself. Leave this off if you'd
-  rather not have ~90 extra lines print to chat, or six extra server commands sent, every time you
-  camp. It also does nothing useful on a server without `#popflags` - it'll just print "Unknown
-  command" a few times.
+- With the existing `ExportOnCamp` option on, camping on Project Quarm refreshes the file
+  automatically, alongside Inventory/Spellbook/Quarmy: Zeal sends `#popflags` (the overview) and
+  `#popflags 1` through `#popflags 5` about 300ms apart and writes the file once all six replies are
+  in (or after about 10 seconds, with whatever arrived). The commands and their replies are kept out
+  of the chat window and the log. Only these replies are hidden: a `#popflags` you type yourself
+  prints as usual, and player chat arriving in the middle is never captured or hidden. It runs at most
+  once a minute, so camping, standing up and camping again doesn't resend.
+- `/outputfile popflags auto [on | off]` (default **on**) turns that automatic refresh off or back on.
+  With it off, or on a server other than Project Quarm (detected by the `_pq.proj` host tag), camping
+  only writes the sections you ran yourself that session, and does nothing when there are none, so a
+  previously written file is never overwritten with nothing.
 - Switching characters clears anything captured for the previous character, so one character's flags
   can never end up in another character's file.
 

@@ -25,6 +25,15 @@ constexpr size_t kSectionLineCap = 150;
 // won't fire again within this many ms of the last time it fired.
 constexpr DWORD kAutoCaptureStepMs = 300;
 constexpr DWORD kAutoCaptureMinIntervalMs = 60000;
+constexpr int kAutoCaptureCommands = 6;
+// How long after the last auto-capture command report lines are still hidden.
+// A reply arriving later than this simply shows up in chat as usual.
+constexpr DWORD kAutoCaptureHideMs = 5000;
+// The file is written as soon as all six sections are in. This is the fallback
+// for a reply that never arrives, counted from the last command.
+constexpr DWORD kAutoCaptureWriteFallbackMs = 8000;
+// The client's host tag for Project Quarm (see Zeal::Game::get_host_tag()).
+constexpr char kQuarmHostTag[] = "_pq.proj";
 
 // Copied verbatim from EQMacEmu zone/gm_commands/popflags.cpp. This is the
 // only place the server's wording is assumed - the rest of a report's text
@@ -39,35 +48,48 @@ bool IsSectionHeader(const std::string &line) {
     if (line == header) return true;
   return false;
 }
+
+// Player chat (a tell landing in the middle of a report, for example) is never
+// part of a section, so it is never captured or hidden.
+bool IsPlayerChat(int color_index) {
+  return (color_index >= USERCOLOR_SAY && color_index <= USERCOLOR_EMOTE) || color_index == USERCOLOR_CHAT_CHANNEL ||
+         color_index == USERCOLOR_RAID_SAY;
+}
 }  // namespace
 
 PopFlagsExport::PopFlagsExport(ZealService *zeal) {
-  zeal->chat_hook->add_print_chat_callback(
-      [this](const char *data, int color_index) { HandlePrintChat(data, color_index); });
+  // A filter rather than a plain print chat callback so that the replies to an auto-capture can be hidden.
+  zeal->chat_hook->add_print_chat_filter(
+      [this](const char *data, int color_index) { return HandlePrintChat(data, color_index); });
   zeal->callbacks->AddGeneric([this]() { HandleMainLoop(); }, callback_type::MainLoop);
   zeal->callbacks->AddGeneric([this]() { HandleCharacterSelect(); }, callback_type::CharacterSelect);
   zeal->callbacks->AddGeneric([this]() { HandleEnterZone(); }, callback_type::EnterZone);
 }
 
-void PopFlagsExport::HandlePrintChat(const char *data, int color_index) {
-  if (!data || !data[0]) return;
+bool PopFlagsExport::HandlePrintChat(const char *data, int color_index) {
+  if (!data || !data[0]) return false;
   std::string line(data);
+  // Only the replies to a capture Zeal sent itself are hidden. A '#popflags'
+  // the player types prints as usual.
+  bool hide = GetTickCount64() < auto_hide_until_tick;
 
   if (IsSectionHeader(line)) {
     EnsureCharacterContext();
-    if (captured_character.empty()) return;  // Not in game; ignore defensively.
+    if (captured_character.empty()) return false;  // Not in game; ignore defensively.
     if (!active_header.empty()) FinishActiveSection();  // Back-to-back sections with no idle gap.
     active_header = line;
     active_lines.clear();
     active_last_line_tick = GetTickCount64();
-    return;
+    return hide;
   }
 
-  if (active_header.empty()) return;  // Not currently inside a captured block.
+  if (active_header.empty()) return false;  // Not currently inside a captured block.
+  if (IsPlayerChat(color_index)) return false;
 
   active_lines.push_back(line);
   active_last_line_tick = GetTickCount64();
   if (active_lines.size() >= kSectionLineCap) FinishActiveSection();
+  return hide;
 }
 
 void PopFlagsExport::HandleMainLoop() {
@@ -86,8 +108,15 @@ void PopFlagsExport::FinishActiveSection() {
   section.header = active_header;
   section.lines = active_lines;
   sections[active_header] = std::move(section);
+  if (auto_capture_pending) auto_capture_headers.insert(active_header);
   active_header.clear();
   active_lines.clear();
+
+  if (auto_capture_pending && auto_capture_headers.size() == kSectionHeaders.size()) {
+    auto_capture_pending = false;
+    auto_hide_until_tick = 0;
+    WriteFile();
+  }
 }
 
 void PopFlagsExport::EnsureCharacterContext() {
@@ -165,30 +194,50 @@ void PopFlagsExport::WriteFile(const std::string &optional_name) {
   file << oss.str();
 }
 
+bool PopFlagsExport::CanAutoCapture() const {
+  // '#popflags' is a Project Quarm server command. Anywhere else it would only
+  // get "Unknown command" replies.
+  return setting_auto_on_camp.get() && Zeal::Game::get_host_tag() == kQuarmHostTag;
+}
+
 void PopFlagsExport::SendAutoCaptureCommands() {
   if (!Zeal::Game::is_in_game()) return;
   ZealService *zeal = ZealService::get_instance();
+  ULONGLONG last_command_tick = GetTickCount64() + (kAutoCaptureCommands - 1) * kAutoCaptureStepMs;
+  auto_hide_until_tick = last_command_tick + kAutoCaptureHideMs;
+  auto_capture_pending = true;
+  auto_capture_headers.clear();
   // Bare '#popflags' is the overview, then tiers 1-5 (5 = Plane of Time).
-  for (int step = 0; step <= 5; step++) {
+  // do_say(true, ...) keeps the commands themselves out of chat.
+  for (int step = 0; step < kAutoCaptureCommands; step++) {
     std::string command = (step == 0) ? "#popflags" : "#popflags " + std::to_string(step);
     zeal->callbacks->AddDelayed([command]() { Zeal::Game::do_say(true, command); }, step * kAutoCaptureStepMs);
   }
-  // Give the last reply time to arrive and the idle timeout time to close
-  // that section before writing.
-  zeal->callbacks->AddDelayed([this]() { WriteFile(); }, 6 * kAutoCaptureStepMs + kSectionIdleTimeoutMs + 500);
+  // Normally FinishActiveSection() writes the file once all six sections are
+  // in. This writes whatever did arrive if one of the replies never does.
+  zeal->callbacks->AddDelayed(
+      [this]() {
+        if (!auto_capture_pending) return;
+        auto_capture_pending = false;
+        auto_hide_until_tick = 0;
+        WriteFile();
+      },
+      (kAutoCaptureCommands - 1) * kAutoCaptureStepMs + kAutoCaptureWriteFallbackMs);
 }
 
 void PopFlagsExport::OnCamp() {
   EnsureCharacterContext();
-  if (ZealService::get_instance()->outputfile->setting_export_on_camp.get()) WriteFile();
+  if (!ZealService::get_instance()->outputfile->setting_export_on_camp.get()) return;
 
-  if (setting_auto_on_camp.get()) {
+  if (CanAutoCapture()) {
     ULONGLONG now = GetTickCount64();
     if (now - last_auto_capture_tick > kAutoCaptureMinIntervalMs) {
       last_auto_capture_tick = now;
-      SendAutoCaptureCommands();
+      SendAutoCaptureCommands();  // Writes the file once the replies are in.
+      return;
     }
   }
+  WriteFile();  // Whatever was captured this session; a no-op if nothing was.
 }
 
 bool PopFlagsExport::HandleCommand(std::vector<std::string> &args) {
@@ -204,7 +253,10 @@ bool PopFlagsExport::HandleCommand(std::vector<std::string> &args) {
       Zeal::Game::print_chat("usage: /outputfile popflags auto [on | off]");
       return true;
     }
-    Zeal::Game::print_chat("PopFlags auto-capture on camp: %s", setting_auto_on_camp.get() ? "on" : "off");
+    Zeal::Game::print_chat("PopFlags auto-capture on camp: %s%s", setting_auto_on_camp.get() ? "on" : "off",
+                           ZealService::get_instance()->outputfile->setting_export_on_camp.get()
+                               ? ""
+                               : " (needs Export on Camp, which is off)");
     return true;
   }
 

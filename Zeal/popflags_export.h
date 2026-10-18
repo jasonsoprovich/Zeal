@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -28,9 +29,9 @@ class PopFlagsExport {
   // no-op if nothing has been captured yet for the active character.
   void WriteFile(const std::string &optional_name = "");
 
-  // Called from OutputFile's GameCamp hook. Writes the file when the
-  // existing ExportOnCamp setting is on, and kicks off an automatic
-  // '#popflags' + '#popflags 1'..'5' capture when setting_auto_on_camp is on.
+  // Called from OutputFile's GameCamp hook. With the existing ExportOnCamp
+  // setting on, either runs a hidden automatic capture (setting_auto_on_camp,
+  // Project Quarm only) or writes whatever was captured this session.
   void OnCamp();
 
   // Handles the "popflags" sub-command of /outputfile ("/outputfile popflags
@@ -40,9 +41,10 @@ class PopFlagsExport {
   // message; true otherwise (including "handled, printed an error").
   bool HandleCommand(std::vector<std::string> &args);
 
-  // Off by default: sending six server commands and printing ~90 lines of
-  // chat on every camp is not something to do silently. See README.
-  ZealSetting<bool> setting_auto_on_camp = {false, "Zeal", "PopFlagsOnCamp", false};
+  // Only takes effect with ExportOnCamp on (the same opt-in as the other
+  // exports) and on Project Quarm, the one server known to have '#popflags'.
+  // See README.
+  ZealSetting<bool> setting_auto_on_camp = {true, "Zeal", "PopFlagsOnCamp", false};
 
  private:
   struct Section {
@@ -51,12 +53,13 @@ class PopFlagsExport {
     std::vector<std::string> lines;
   };
 
-  void HandlePrintChat(const char *data, int color_index);
+  bool HandlePrintChat(const char *data, int color_index);  // Returns true to hide the line.
   void HandleMainLoop();
   void HandleCharacterSelect();
   void HandleEnterZone();
   void FinishActiveSection();     // Closes out the in-progress capture, if any.
   void EnsureCharacterContext();  // Resets all captured state on a character change.
+  bool CanAutoCapture() const;
   void SendAutoCaptureCommands();
   static std::map<std::string, Section> ReadExistingFile(const std::string &filename);
 
@@ -68,4 +71,7 @@ class PopFlagsExport {
   std::string captured_character;  // Character the current 'sections' belong to.
 
   unsigned long long last_auto_capture_tick = 0;  // GetTickCount64() of the last auto-send, for the min interval.
+  unsigned long long auto_hide_until_tick = 0;    // Report lines are hidden until this GetTickCount64().
+  bool auto_capture_pending = false;               // Waiting for the auto-capture replies to write the file.
+  std::set<std::string> auto_capture_headers;      // Sections completed since the auto-capture was sent.
 };

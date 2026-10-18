@@ -347,6 +347,12 @@ void Chat::handle_print_chat(const char *data, int color_index) {
   for (const auto &callback : print_chat_callbacks) callback(data, color_index);
 }
 
+bool Chat::handle_print_chat_filter(const char *data, int color_index) {
+  for (const auto &callback : print_chat_filters)
+    if (callback(data, color_index)) return true;
+  return false;
+}
+
 // Note that the client PrintChat does modify the data parameter (percent converts) so it is not
 // a const char* parameter, but we are adding internal buffer copies in this calls so that this
 // wrapper effectively treats it like it is and makes print_chat safer to use in general.
@@ -355,6 +361,7 @@ static void __fastcall PrintChat(int t, int unused, char *data, short color_inde
     return;
 
   ZealService::get_instance()->chat_hook->handle_print_chat(data, color_index);
+  if (ZealService::get_instance()->chat_hook->handle_print_chat_filter(data, color_index)) return;
 
   const auto &abbreviated_chat = ZealService::get_instance()->chat_hook->UseAbbreviatedChat;
 

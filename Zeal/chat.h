@@ -37,6 +37,12 @@ class Chat {
     print_chat_callbacks.push_back(callback);
   }
 
+  // Same data as the print chat callbacks, but returning true drops the line from both the chat
+  // window and the log. Called after all of the print chat callbacks.
+  void add_print_chat_filter(std::function<bool(const char *data, int color_index)> callback) {
+    print_chat_filters.push_back(callback);
+  }
+
   // These callbacks receive the "raw" incoming /gsay message data from the server.
   void add_incoming_gsay_callback(std::function<void(const char *data)> callback) {
     gsay_callbacks.push_back(callback);
@@ -53,6 +59,8 @@ class Chat {
   }
 
   void handle_print_chat(const char *data, int color_index);
+
+  bool handle_print_chat_filter(const char *data, int color_index);
 
   bool handle_key_press(int key, bool down, int modifier);
 
@@ -77,6 +85,7 @@ class Chat {
   void InitPercentReplacements();
   std::vector<std::function<void(std::string &str_data)>> percent_replacements;
   std::vector<std::function<void(const char *data, int color_index)>> print_chat_callbacks;
+  std::vector<std::function<bool(const char *data, int color_index)>> print_chat_filters;
   std::vector<std::function<void(const char *data)>> gsay_callbacks;
   std::vector<std::function<void(const char *data)>> rsay_callbacks;
   std::vector<std::function<bool(const char *data, int color_index)>> chat_callbacks;
