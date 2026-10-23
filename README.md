@@ -876,6 +876,15 @@ These are omitted along with `target_id` when there is no target. `target_name`
 is provided so that a consumer never has to parse eqtype 28, whose text is
 formatting dependent (see `/labels showtargetspawnid`).
 
+#### Item displays
+An `item` message (type 7) is sent each time an item display window is filled: clicking an item
+link in chat, or inspecting an item in an inventory, bank, loot or merchant slot. It carries only
+what the window itself shows, so a consumer can look the item up in its own database.
+
+```json
+{ "item_id": 13073, "name": "Bone Chips" }
+```
+
 ---
 ### Tick Timer
 

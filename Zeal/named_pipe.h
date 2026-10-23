@@ -9,7 +9,7 @@
 #include "json.hpp"
 #include "zeal_settings.h"
 
-enum struct pipe_data_type { log, label, gauge, player, custom, raid, group };
+enum struct pipe_data_type { log, label, gauge, player, custom, raid, group, item };
 
 struct pipe_data {
   pipe_data_type type;
@@ -42,6 +42,7 @@ class NamedPipe {
   bool is_connected() const { return pipe_handles.size() != 0; }
 
  private:
+  void write_item(int item_id, const std::string &name);
   void add_new_pipe_handle(const HANDLE &handle);
   void update_pipe_handles();
   ZealSetting<int> pipe_delay = {100, "Zeal", "PipeDelay", false};
