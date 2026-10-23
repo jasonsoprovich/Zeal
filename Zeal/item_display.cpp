@@ -10,6 +10,7 @@
 #include "game_addresses.h"
 #include "game_functions.h"
 #include "hook_wrapper.h"
+#include "named_pipe.h"
 #include "string_util.h"
 #include "ui_skin.h"
 #include "zeal.h"
@@ -651,6 +652,11 @@ void __fastcall SetItem(Zeal::GameUI::ItemDisplayWnd *wnd, int unused, Zeal::Gam
 
   if (ZealService::get_instance() && ZealService::get_instance()->item_displays)
     ZealService::get_instance()->item_displays->add_to_cache(item);
+
+  // Let pipe consumers know which item the player is looking at.
+  if (item && ZealService::get_instance() && ZealService::get_instance()->pipe)
+    ZealService::get_instance()->pipe->write_item(
+        item->ID, std::string(item->Name, strnlen(item->Name, sizeof(item->Name))));
 
   // The callers of SetItem always call Activate() on it immediately after which includes
   // a call to update the window text, so we just need to update the DisplayText here.

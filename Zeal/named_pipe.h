@@ -10,7 +10,7 @@
 #include "json.hpp"
 #include "zeal_settings.h"
 
-enum struct pipe_data_type { log, label, gauge, player, custom, raid, group, death };
+enum struct pipe_data_type { log, label, gauge, player, custom, raid, group, death, item };
 
 struct pipe_data {
   pipe_data_type type;
@@ -39,6 +39,7 @@ class NamedPipe {
   void write(const char *format, ...);
   void main_loop();
   void update_delay(unsigned new_delay);
+  void write_item(int item_id, const std::string &name);
 
   bool is_connected() const { return pipe_handles.size() != 0; }
 
