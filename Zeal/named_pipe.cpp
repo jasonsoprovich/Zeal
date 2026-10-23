@@ -458,6 +458,14 @@ void NamedPipe::write(const char *format, ...) {
   write(std::string(buffer));
 }
 
+// Sent when an item display window is filled (an item link was clicked, or an item was inspected
+// from an inventory, bank, loot or merchant slot).
+void NamedPipe::write_item(int item_id, const std::string &name) {
+  if (!is_connected()) return;
+  nlohmann::json item_data = {{"item_id", item_id}, {"name", name}};
+  write(item_data.dump(), pipe_data_type::item);
+}
+
 void NamedPipe::update_delay(unsigned new_delay) {
   pipe_delay.set(new_delay);
   Zeal::Game::print_chat("pipe delay is now set to %i", pipe_delay);
