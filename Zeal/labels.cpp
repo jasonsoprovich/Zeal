@@ -99,6 +99,18 @@ bool GetLabelFromEq(int type, Zeal::GameUI::CXSTR *str, bool *override_color, UL
       *override_color = false;
       return true;
     }
+    case 87: {  // Distance to the target. Blank beyond 250 units, the same limit as the pipe's target_loc.
+      auto *self = Zeal::Game::get_self();
+      auto *target = Zeal::Game::get_target();
+      double distance = (self && target && target != self) ? target->Position.Dist(self->Position) : -1;
+      if (distance < 0 || distance >= 250) {
+        default_empty(str, override_color, color);
+        return true;
+      }
+      Zeal::Game::CXStr_PrintString(str, "%.0f", distance);
+      *override_color = false;
+      return true;
+    }
     case 124: {
       if (Zeal::Game::get_char_info()) Zeal::Game::CXStr_PrintString(str, "%d", Zeal::Game::get_char_info()->mana());
       *override_color = false;
