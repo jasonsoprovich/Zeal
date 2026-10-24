@@ -111,6 +111,21 @@ bool GetLabelFromEq(int type, Zeal::GameUI::CXSTR *str, bool *override_color, UL
       *override_color = false;
       return true;
     }
+    case 88:    // Target level.
+    case 89: {  // Target class, short form (WAR, CLR, ...).
+      // Blank for corpses, and for /anonymous or /roleplay players, whose level and class /who hides.
+      auto *target = Zeal::Game::get_target();
+      if (!target || target->Type > 1 || (target->Type == 0 && target->AnonymousState)) {
+        default_empty(str, override_color, color);
+        return true;
+      }
+      if (type == 88)
+        Zeal::Game::CXStr_PrintString(str, "%d", target->Level);
+      else
+        Zeal::Game::CXStr_PrintString(str, "%s", Zeal::Game::class_name_short(target->Class).c_str());
+      *override_color = false;
+      return true;
+    }
     case 124: {
       if (Zeal::Game::get_char_info()) Zeal::Game::CXStr_PrintString(str, "%d", Zeal::Game::get_char_info()->mana());
       *override_color = false;
