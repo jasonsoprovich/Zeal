@@ -611,9 +611,10 @@ which headers exist would.
   automatically, alongside Inventory/Spellbook/Quarmy: Zeal sends `#popflags` (the overview) and
   `#popflags 1` through `#popflags 5` about 300ms apart and writes the file once all six replies are
   in (or after about 10 seconds, with whatever arrived). The commands and their replies are kept out
-  of the chat window and the log. Only these replies are hidden: a `#popflags` you type yourself
-  prints as usual, and player chat arriving in the middle is never captured or hidden. It runs at most
-  once a minute, so camping, standing up and camping again doesn't resend.
+  of the chat window and the log for about 6 seconds, which covers the replies on a normal
+  connection. Only these replies are hidden: a `#popflags` you type yourself prints as usual, and
+  player chat arriving in the middle is never captured or hidden. It runs at most once a minute, so
+  camping, standing up and camping again doesn't resend.
 - `/outputfile popflags auto [on | off]` (default **on**) turns that automatic refresh off or back on.
   With it off, or on a server other than Project Quarm (detected by the `_pq.proj` host tag), camping
   only writes the sections you ran yourself that session, and does nothing when there are none, so a
@@ -621,16 +622,19 @@ which headers exist would.
 - Switching characters clears anything captured for the previous character, so one character's flags
   can never end up in another character's file.
 
-File format (tab-separated, matching the other `/outputfile` exports):
+The file is the report text exactly as `#popflags` prints it, with no timestamps or extra markup, so
+anything that already reads pasted `#popflags` output can read the file too. Sections are always in
+the order `#popflags all` prints them (overview, tier 1 through tier 4, Plane of Time), and a section
+never captured is simply absent:
 ```
-Format	PopFlags	1
-Section	<unix_epoch_seconds>	=== Tier 1 Progression ===
-Line	--- Plane of Justice ---
-Line	Seventh Hammer access: Unlocked
+=== Planes of Power Progression ===
+Tier 1: Complete
+...
+=== Tier 1 Progression ===
+--- Plane of Justice ---
+Seventh Hammer access: Unlocked
 ...
 ```
-Each `Section` line starts a section (the epoch second it was captured, then the exact header text);
-every `Line` after it until the next `Section` is one line of that section's report, verbatim.
 
 ### Key Binds
 

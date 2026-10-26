@@ -1,5 +1,4 @@
 #pragma once
-#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -25,8 +24,9 @@ class PopFlagsExport {
   // Writes every captured section (this session's captures merged onto
   // whatever sections are already in the existing file, so running one
   // section per session still builds up a complete file over time) to
-  // <CharName>-PopFlags[hosttag].txt, or optional_name.txt when given. A
-  // no-op if nothing has been captured yet for the active character.
+  // <CharName>-PopFlags[hosttag].txt, or optional_name.txt when given, as the
+  // plain report text in the server's section order. A no-op if nothing has
+  // been captured yet for the active character.
   void WriteFile(const std::string &optional_name = "");
 
   // Called from OutputFile's GameCamp hook. With the existing ExportOnCamp
@@ -47,12 +47,6 @@ class PopFlagsExport {
   ZealSetting<bool> setting_auto_on_camp = {true, "Zeal", "PopFlagsOnCamp", false};
 
  private:
-  struct Section {
-    int64_t captured_at = 0;  // Unix epoch seconds.
-    std::string header;
-    std::vector<std::string> lines;
-  };
-
   bool HandlePrintChat(const char *data, int color_index);  // Returns true to hide the line.
   void HandleMainLoop();
   void HandleCharacterSelect();
@@ -61,9 +55,11 @@ class PopFlagsExport {
   void EnsureCharacterContext();  // Resets all captured state on a character change.
   bool CanAutoCapture() const;
   void SendAutoCaptureCommands();
-  static std::map<std::string, Section> ReadExistingFile(const std::string &filename);
+  // Section header -> that section's lines (not including the header).
+  static std::map<std::string, std::vector<std::string>> ReadExistingFile(const std::string &filename);
 
-  std::map<std::string, Section> sections;  // Section header -> most recent capture this session.
+  // Section header -> the most recent capture of that section this session.
+  std::map<std::string, std::vector<std::string>> sections;
   std::string active_header;                // Empty when no capture is in progress.
   std::vector<std::string> active_lines;
   unsigned long long active_last_line_tick = 0;  // GetTickCount64() of the last captured line.

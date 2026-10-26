@@ -2,7 +2,6 @@
 
 #include <Windows.h>
 
-#include <ctime>
 #include <fstream>
 #include <sstream>
 
@@ -27,7 +26,9 @@ constexpr DWORD kAutoCaptureStepMs = 300;
 constexpr DWORD kAutoCaptureMinIntervalMs = 60000;
 constexpr int kAutoCaptureCommands = 6;
 // How long after the last auto-capture command report lines are still hidden.
-// A reply arriving later than this simply shows up in chat as usual.
+// This is purely time based (writing the file doesn't end it early), so a
+// reply that is still arriving when the file is written stays hidden too. A
+// reply arriving later than this simply shows up in chat as usual.
 constexpr DWORD kAutoCaptureHideMs = 5000;
 // The file is written as soon as all six sections are in. This is the fallback
 // for a reply that never arrives, counted from the last command.
@@ -35,7 +36,8 @@ constexpr DWORD kAutoCaptureWriteFallbackMs = 8000;
 // The client's host tag for Project Quarm (see Zeal::Game::get_host_tag()).
 constexpr char kQuarmHostTag[] = "_pq.proj";
 
-// Copied verbatim from EQMacEmu zone/gm_commands/popflags.cpp. This is the
+// Copied verbatim from EQMacEmu zone/gm_commands/popflags.cpp, in the order
+// the file lists them (the order '#popflags all' prints them). This is the
 // only place the server's wording is assumed - the rest of a report's text
 // is stored and exported as opaque lines.
 const std::vector<std::string> kSectionHeaders = {
@@ -103,18 +105,13 @@ void PopFlagsExport::HandleEnterZone() { FinishActiveSection(); }
 
 void PopFlagsExport::FinishActiveSection() {
   if (active_header.empty()) return;
-  Section section;
-  section.captured_at = static_cast<int64_t>(time(nullptr));
-  section.header = active_header;
-  section.lines = active_lines;
-  sections[active_header] = std::move(section);
+  sections[active_header] = active_lines;
   if (auto_capture_pending) auto_capture_headers.insert(active_header);
   active_header.clear();
   active_lines.clear();
 
   if (auto_capture_pending && auto_capture_headers.size() == kSectionHeaders.size()) {
     auto_capture_pending = false;
-    auto_hide_until_tick = 0;
     WriteFile();
   }
 }
@@ -135,31 +132,21 @@ void PopFlagsExport::EnsureCharacterContext() {
   }
 }
 
-std::map<std::string, PopFlagsExport::Section> PopFlagsExport::ReadExistingFile(const std::string &filename) {
-  std::map<std::string, Section> result;
+std::map<std::string, std::vector<std::string>> PopFlagsExport::ReadExistingFile(const std::string &filename) {
+  std::map<std::string, std::vector<std::string>> result;
   std::ifstream file(filename);
   if (!file.is_open()) return result;
 
-  Section *current = nullptr;
+  std::vector<std::string> *current = nullptr;  // Lines before the first header are skipped.
   std::string line;
   while (std::getline(file, line)) {
-    if (line.rfind("Section\t", 0) == 0) {
-      size_t first_tab = line.find('\t');
-      size_t second_tab = line.find('\t', first_tab + 1);
-      if (second_tab == std::string::npos) continue;  // Malformed line; skip.
-      Section section;
-      try {
-        section.captured_at = std::stoll(line.substr(first_tab + 1, second_tab - first_tab - 1));
-      } catch (const std::exception &) {
-        section.captured_at = 0;
-      }
-      section.header = line.substr(second_tab + 1);
-      result[section.header] = section;
-      current = &result[section.header];
-    } else if (current && line.rfind("Line\t", 0) == 0) {
-      current->lines.push_back(line.substr(5));
+    if (!line.empty() && line.back() == '\r') line.pop_back();  // In case the file was edited on Windows.
+    if (IsSectionHeader(line)) {
+      current = &result[line];
+      current->clear();
+    } else if (current && !line.empty()) {
+      current->push_back(line);
     }
-    // The "Format" header line (and anything else unrecognized) is skipped.
   }
   return result;
 }
@@ -180,14 +167,17 @@ void PopFlagsExport::WriteFile(const std::string &optional_name) {
   // Merge this session's captures onto whatever is already on disk, so
   // running one section per session (rather than the overview plus all five tiers in
   // one sitting) still builds up a complete file over multiple sessions.
-  std::map<std::string, Section> merged = ReadExistingFile(filename);
-  for (auto &[header, section] : sections) merged[header] = section;
+  std::map<std::string, std::vector<std::string>> merged = ReadExistingFile(filename);
+  for (auto &[header, lines] : sections) merged[header] = lines;
 
+  // Plain report text, exactly as the server prints it, so anything that
+  // already reads pasted '#popflags' output can read this file too.
   std::ostringstream oss;
-  oss << "Format\tPopFlags\t1\n";
-  for (auto &[header, section] : merged) {
-    oss << "Section\t" << section.captured_at << "\t" << section.header << "\n";
-    for (auto &line : section.lines) oss << "Line\t" << line << "\n";
+  for (const auto &header : kSectionHeaders) {
+    auto it = merged.find(header);
+    if (it == merged.end()) continue;
+    oss << header << "\n";
+    for (const auto &line : it->second) oss << line << "\n";
   }
 
   std::ofstream file(filename);
@@ -219,7 +209,6 @@ void PopFlagsExport::SendAutoCaptureCommands() {
       [this]() {
         if (!auto_capture_pending) return;
         auto_capture_pending = false;
-        auto_hide_until_tick = 0;
         WriteFile();
       },
       (kAutoCaptureCommands - 1) * kAutoCaptureStepMs + kAutoCaptureWriteFallbackMs);
