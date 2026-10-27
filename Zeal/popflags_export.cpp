@@ -14,9 +14,12 @@
 #include "zeal.h"
 
 namespace {
-// A section ends after this long with no new captured line (the client
-// prints a #popflags report as a fast burst, well under a second).
-constexpr DWORD kSectionIdleTimeoutMs = 1000;
+// A section ends once no new line has arrived for this long and this many
+// frames. The server sends a section as one burst, so this is short to keep
+// unrelated lines that arrive just after it (a camp message, a spell cast) out
+// of it. The frame count keeps a client hitch mid-burst from cutting it short.
+constexpr DWORD kSectionIdleTimeoutMs = 250;
+constexpr int kSectionIdleFrames = 3;
 // Safety cap so a stuck capture (e.g. an unrelated header-like line) cannot
 // grow forever. The largest real section is well under this.
 constexpr size_t kSectionLineCap = 150;
@@ -51,11 +54,13 @@ bool IsSectionHeader(const std::string &line) {
   return false;
 }
 
-// Player chat (a tell landing in the middle of a report, for example) is never
-// part of a section, so it is never captured or hidden.
-bool IsPlayerChat(int color_index) {
-  return (color_index >= USERCOLOR_SAY && color_index <= USERCOLOR_EMOTE) || color_index == USERCOLOR_CHAT_CHANNEL ||
-         color_index == USERCOLOR_RAID_SAY;
+// The server prints the report in plain message colors (White, Red, Lime and
+// Yellow), all below the client's user colors. Player and channel chat, spell
+// casts and combat all use user colors, so they are never captured or hidden,
+// even mid-report. The header's own color is accepted too in case the client
+// ever remaps the report into a user color.
+bool IsReportColor(int color_index, int header_color_index) {
+  return (color_index >= 0 && color_index < USERCOLOR_SAY) || color_index == header_color_index;
 }
 }  // namespace
 
@@ -81,21 +86,25 @@ bool PopFlagsExport::HandlePrintChat(const char *data, int color_index) {
     if (!active_header.empty()) FinishActiveSection();  // Back-to-back sections with no idle gap.
     active_header = line;
     active_lines.clear();
+    active_header_color_index = color_index;
     active_last_line_tick = GetTickCount64();
+    active_idle_frames = 0;
     return hide;
   }
 
   if (active_header.empty()) return false;  // Not currently inside a captured block.
-  if (IsPlayerChat(color_index)) return false;
+  if (!IsReportColor(color_index, active_header_color_index)) return false;
 
   active_lines.push_back(line);
   active_last_line_tick = GetTickCount64();
+  active_idle_frames = 0;
   if (active_lines.size() >= kSectionLineCap) FinishActiveSection();
   return hide;
 }
 
 void PopFlagsExport::HandleMainLoop() {
-  if (!active_header.empty() && (GetTickCount64() - active_last_line_tick > kSectionIdleTimeoutMs))
+  if (active_header.empty()) return;
+  if (++active_idle_frames >= kSectionIdleFrames && GetTickCount64() - active_last_line_tick > kSectionIdleTimeoutMs)
     FinishActiveSection();
 }
 

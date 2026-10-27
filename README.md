@@ -613,7 +613,7 @@ which headers exist would.
   in (or after about 10 seconds, with whatever arrived). The commands and their replies are kept out
   of the chat window and the log for about 6 seconds, which covers the replies on a normal
   connection. Only these replies are hidden: a `#popflags` you type yourself prints as usual, and
-  player chat arriving in the middle is never captured or hidden. It runs at most once a minute, so
+  chat, channel, spell and combat lines arriving in the middle are never captured or hidden. It runs at most once a minute, so
   camping, standing up and camping again doesn't resend.
 - `/outputfile popflags auto [on | off]` (default **on**) turns that automatic refresh off or back on.
   With it off, or on a server other than Project Quarm (detected by the `_pq.proj` host tag), camping

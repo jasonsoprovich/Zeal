@@ -62,7 +62,9 @@ class PopFlagsExport {
   std::map<std::string, std::vector<std::string>> sections;
   std::string active_header;                // Empty when no capture is in progress.
   std::vector<std::string> active_lines;
+  int active_header_color_index = 0;
   unsigned long long active_last_line_tick = 0;  // GetTickCount64() of the last captured line.
+  int active_idle_frames = 0;                    // Main loop frames since the last captured line.
 
   std::string captured_character;  // Character the current 'sections' belong to.
 
