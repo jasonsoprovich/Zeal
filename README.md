@@ -879,8 +879,22 @@ These are omitted along with `target_id` when there is no target. `target_name`
 is provided so that a consumer never has to parse eqtype 28, whose text is
 formatting dependent (see `/labels showtargetspawnid`).
 
+#### Death events
+A `death` message (type 7) is sent for every death the client is told about, which is every death in
+the zone. The chat log only shows a "has been slain" message for some of them, so a consumer that
+tracks spawns (for example timers on mobs) cannot rely on the log to know when a spawn is gone.
+
+```json
+{ "spawn_id": 1234, "name": "a gnoll pup", "type": 1, "level": 12, "killer_id": 567, "killer_name": "Soandso" }
+```
+
+- `spawn_id` - the spawn id of the entity that died, matching `target_id` and the roster `spawn_id`s
+- `name`, `type`, `level` - as for the target descriptors; omitted if the client did not know the spawn
+- `killer_id` - the killer's spawn id, or 0 when the server reported no killer (e.g. a damage over time tick)
+- `killer_name` - omitted when there is no killer or the client did not know it
+
 #### Item displays
-An `item` message (type 7) is sent each time an item display window is filled: clicking an item
+An `item` message (type 8) is sent each time an item display window is filled: clicking an item
 link in chat, or inspecting an item in an inventory, bank, loot or merchant slot. It carries only
 what the window itself shows, so a consumer can look the item up in its own database.
 
