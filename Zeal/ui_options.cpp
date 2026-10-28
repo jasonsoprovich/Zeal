@@ -999,6 +999,9 @@ void ui_options::InitNameplate() {
   ui->AddCheckboxCallback(wnd, "Zeal_NameplateTickBar", [](Zeal::GameUI::BasicWnd *wnd) {
     ZealService::get_instance()->nameplate->setting_tick_bar.set(wnd->Checked);
   });
+  ui->AddCheckboxCallback(wnd, "Zeal_NameplateCastBars", [](Zeal::GameUI::BasicWnd *wnd) {
+    ZealService::get_instance()->nameplate->setting_cast_bars.set(wnd->Checked);
+  });
   ui->AddCheckboxCallback(wnd, "Zeal_TagEnable", [](Zeal::GameUI::BasicWnd *wnd) {
     ZealService::get_instance()->nameplate->setting_tag_enable.set(wnd->Checked);
   });
@@ -1291,6 +1294,7 @@ void ui_options::UpdateOptionsNameplate() {
   ui->SetChecked("Zeal_NameplateManaBars", ZealService::get_instance()->nameplate->setting_mana_bars.get());
   ui->SetChecked("Zeal_NameplateStaminaBars", ZealService::get_instance()->nameplate->setting_stamina_bars.get());
   ui->SetChecked("Zeal_NameplateTickBar", ZealService::get_instance()->nameplate->setting_tick_bar.get());
+  ui->SetChecked("Zeal_NameplateCastBars", ZealService::get_instance()->nameplate->setting_cast_bars.get());
   ui->SetChecked("Zeal_TagEnable", ZealService::get_instance()->nameplate->setting_tag_enable.get());
   ui->SetChecked("Zeal_TagTooltip", ZealService::get_instance()->nameplate->setting_tag_tooltip.get());
   ui->SetChecked("Zeal_TagTooltipAlign", ZealService::get_instance()->nameplate->setting_tag_tooltip_align.get());
