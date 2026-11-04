@@ -458,6 +458,23 @@ void NamedPipe::write(const char *format, ...) {
   write(std::string(buffer));
 }
 
+void NamedPipe::write_consider(const Zeal::Packets::Consider_Struct &consider) {
+  const auto *ent = Zeal::Game::get_entity_by_id(static_cast<short>(consider.targetid));
+  if (!ent || ent->Type != Zeal::GameEnums::EntityTypes::NPC) return;  // Players always con as ally.
+
+  // The server swaps the four worst standings before sending (apprehensive and scowls, dubious and
+  // threatening), so the client's order is 6 scowls, 7 threatening, 8 dubious, 9 apprehensive.
+  // Undo that so that faction runs from 1 (ally) to 9 (scowls) and a higher number is always worse.
+  int faction = static_cast<int>(consider.faction);
+  if (faction >= 6 && faction <= 9) faction = 15 - faction;
+
+  nlohmann::json consider_data = nlohmann::json::object();
+  consider_data["spawn_id"] = consider.targetid;
+  consider_data["name"] = std::string(Zeal::Game::trim_name(ent->Name));
+  consider_data["faction"] = faction;
+  write(consider_data.dump(), pipe_data_type::consider);
+}
+
 void NamedPipe::update_delay(unsigned new_delay) {
   pipe_delay.set(new_delay);
   Zeal::Game::print_chat("pipe delay is now set to %i", pipe_delay.get());
@@ -514,6 +531,15 @@ NamedPipe::NamedPipe(ZealService *zeal) {
     return true;  // return true to stop the game from processing any further on this command,
                   // false if you want to just add features to an existing cmd
   });
+  // Consider replies. The server only sends the faction standing in reply to a consider, and it reflects
+  // the player's state at that moment (illusions, invisibility, faction buffs, being engaged).
+  zeal->callbacks->AddPacket(
+      [this](UINT opcode, char *buffer, UINT len) {
+        if (opcode == Zeal::Packets::Consider && len >= sizeof(Zeal::Packets::Consider_Struct) && is_connected())
+          write_consider(*reinterpret_cast<Zeal::Packets::Consider_Struct *>(buffer));
+        return false;  // continue processing
+      },
+      callback_type::WorldMessage);
   // zeal->hooks->Add("logtextfile", 0x5240dc, log_hook, hook_type_detour); //receiving this via print chat so we can
   // get color indexes
   name += std::to_string(GetCurrentProcessId());
