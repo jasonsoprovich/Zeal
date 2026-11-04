@@ -29,7 +29,7 @@ from the repo source, providing full transparency on the release contents.
 - Additional ui support (new gauges, bag control & locking, looting, spellsets, targetrings,
   nameplates, right click to equip, skill window sorting, ctrl for context menus/looting,
   tagging (text and shapes), raidbars, target of target, etc)
-- Autostand on move/cast, autosit on camp with export inventory/spellbook option,
+- Autostand on move/cast, autosit on camp with export inventory/spellbook/PoP flags option,
   enhanced autorun behavior option
 - Enhanced chat (% replacements, additional filters and colors, tell windows,
   tab completion, copy and paste, per character autojoin channels)
@@ -230,6 +230,7 @@ ___
 
 - `/labels`
   - **Arguments:** `showtargetspawnid` (toggles visibility of the spawn id in the target name eqtype 28)
+  - **Arguments:** `showtargetdistance` (toggles visibility of the target distance (if less than 250) in eqtype 28)
   - **Description:** UI label settings.
 
 - `/lead`
@@ -273,11 +274,19 @@ ___
   - **Description:** controls map enable, size, labels, zoom, and markers
 
 - `/melody`
-  - **Arguments:** `song gem #'s (maximum of 5)`, `resume`
+  - **Arguments:** `song gem #s or bard song click items (maximum of 5)`, `resume`
   - **Aliases:** `/mel`
-  - **Example:** `/melody 1 4 2 3`
+  - **Example:** `/melody 1 4 2 3` - Cycles through spell gems 1, 4, 2, 3.
+  - **Example:** `/melody 1 2 2.3 3` - The third step of the cycle clicks the item in bag 2, slot 3 (`/useitem` numbering).
+  - **Example:** `/melody 1 2 3 0.10 4` - Clicks the item in slot 10 (Ranged, bag = 0 for equipped + `/useitem` numbering).
+  - **Example:** `/melody 1 2 Breath 3` - Clicks the first item clicky whose name starts with `Breath`.
   - **Example:** `/melody resume` - Resumes an interrupted melody at the interrupted song index.
-  - **Description:** plays songs in order until interrupted in any fashion.
+  - **Description:** plays songs in order until interrupted in any fashion. Items with bard song effects
+    are played by the same path as a queued `/useitem` and are selected by using either the inventory
+    location specified by `bag.slot` or by a case sensitive name match.  The `bag.slot` uses bag == 0
+    for the 0-29 equipment locations (ie, `0.10` for the ranged slot) or bag 1-8 for the inventory packs.
+    The name match finds the first clickable item that starts with the search phrase. Use underscores for
+    spaces in item names (`Composers_Chestplate`).
 
 - `/mouseover`
   - **Arguments:** `on`, `off`, `width [pixels]`, `height [pixels]`, `shiftscroll [always|smart]`
@@ -303,11 +312,15 @@ ___
 
 - `/outputfile`
   - **Aliases:** `/output`, `/out`
-  - **Arguments:** `inventory | spellbook | raidlist` `[optional_filename]`, `format [0 | 1]`
+  - **Arguments:** `inventory | spellbook | quarmy | popflags | raidlist` `[optional_filename]`, `format [0 | 1]`, `hidepopflags`, `popflagsoncamp`
   - **Example:** `/outputfile inventory my_inventory`
   - **Description:**
     - `inventory` outputs information about your equipment, inventory bag slots, held item, and bank slots to a file.
     - `spellbook` outputs a list of all spell ids current scribed in your spellbook.
+    - `popflags` sends `#popflags` and `#popflags 1` to `5` and saves the lines the server answers with to
+      `<name>-PoPFlags.txt` about 3 seconds later (nothing is written if the server does not answer). The reply
+      also shows in chat. Also done by the "Export data on /camp" option if `popflagsoncamp` is on.
+    - `hidepopflags` toggles hiding the reply's own lines in chat (default off).
     - `raidlist` outputs a raid 'tick' with a list of players in the raid.
     - `format` sets the format of the export files (0 = default, 1 = new style with host tag)
 
@@ -906,6 +919,23 @@ what the window itself shows, so a consumer can look the item up in its own data
 ```json
 { "item_id": 13073, "name": "Bone Chips" }
 ```
+
+#### Consider events
+A `consider` message (type 9) is sent when the server answers a consider of an NPC (`/consider`, the
+consider key or `/leftclickcon`). The faction standing toward the player is only known to the client
+through these replies, and the chat text is the only other place it shows up.
+
+```json
+{ "spawn_id": 1234, "name": "a gnoll pup", "faction": 9 }
+```
+
+- `spawn_id` - the spawn id of the NPC that was considered, matching `target_id`
+- `name` - as for the target descriptors
+- `faction` - 1 ally, 2 warmly, 3 kindly, 4 amiable, 5 indifferent, 6 apprehensive, 7 dubious,
+  8 threatening, 9 scowls
+
+The standing is the server's answer at that moment, so it reflects the player's current illusion,
+invisibility, faction buffs and whether the NPC is already engaged. No message is sent for players.
 
 ---
 ### Tick Timer
