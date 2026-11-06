@@ -343,6 +343,11 @@ ___
   - **Arguments:** `None`
   - **Description:** toggles on/off extra output raid and group member info fields
 
+- `/pipeconsider`
+  - **Arguments:** `on`, `off`, or none to toggle
+  - **Description:** while a pipe is connected, considers each new NPC target (however it was targeted) so
+    that a `consider` message is sent without printing the consider message to chat.
+
 - `/playerclickthru`
   - **Arguments:** `on`, `off`
   - **Description:** Disables (on) left click targeting of other players (excludes self).
@@ -924,6 +929,10 @@ what the window itself shows, so a consumer can look the item up in its own data
 A `consider` message (type 9) is sent when the server answers a consider of an NPC (`/consider`, the
 consider key or `/leftclickcon`). The faction standing toward the player is only known to the client
 through these replies, and the chat text is the only other place it shows up.
+
+With `/pipeconsider on`, Zeal considers every new NPC target itself and keeps those replies out of chat,
+so a consumer gets the standing of whatever is targeted without the chat filling with consider messages.
+Considers the player makes still print as usual (so with `/leftclickcon` also on, clicks still print).
 
 ```json
 { "spawn_id": 1234, "name": "a gnoll pup", "faction": 9 }
