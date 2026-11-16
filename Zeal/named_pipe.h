@@ -11,7 +11,7 @@
 #include "json.hpp"
 #include "zeal_settings.h"
 
-enum struct pipe_data_type { log, label, gauge, player, custom, raid, group, death, item, consider };
+enum struct pipe_data_type { log, label, gauge, player, custom, raid, group, death, item, consider, spell };
 
 struct pipe_data {
   pipe_data_type type;
@@ -51,6 +51,8 @@ class NamedPipe {
   void write_consider(const Zeal::Packets::Consider_Struct &consider);
   void auto_consider();
   bool handle_consider(const Zeal::Packets::Consider_Struct &consider);
+  void write_spell_action(const Zeal::Packets::Action_Struct &action);
+  void update_pipe_spells(const std::string &mode);
   void add_new_pipe_handle(const HANDLE &handle);
   void update_pipe_handles();
   ZealSetting<int> pipe_delay = {100, "Zeal", "PipeDelay", false};
@@ -58,6 +60,7 @@ class NamedPipe {
   ZealSetting<bool> pipe_consider = {false, "Zeal", "PipeConsider", false};
   int last_target_id = 0;                              // Spawn id of the target at the last auto_consider() check.
   std::unordered_map<int, ULONGLONG> auto_considers;  // Spawn id -> request time of considers sent by auto_consider().
+  ZealSetting<int> pipe_spells = {2, "Zeal", "PipeSpells", false};  // 0 off, 1 detrimental only, 2 all.
   bool end_thread = false;
   std::string name = "\\\\.\\pipe\\zeal_";
   std::vector<HANDLE> pipe_handles;
